@@ -46,16 +46,22 @@ common common
 library
   import:          common
   hs-source-dirs:  src
+  cxx-sources:     cbits/hs_std_string.cpp
   exposed-modules:
     HsForeign
     HsForeign.AsyncFFI
     HsForeign.Primitive
+    HsForeign.String
 
   build-depends:
     , base                >=4.14 && <5
+    , bytestring          >=0.10 && <=0.12
     , ghc-prim            >=0.5  && <1.0
     , primitive           ^>=0.7
     , primitive-unlifted  ^>=1.0
+
+  cxx-options:     -std=c++17 -Werror=switch
+  extra-libraries: stdc++
 
 test-suite foreign-test
   import:             common
@@ -64,14 +70,16 @@ test-suite foreign-test
   other-modules:
     HsForeign.AsyncFFISpec
     HsForeign.PrimitiveSpec
+    HsForeign.StringSpec
 
   hs-source-dirs:     test
   c-sources:          test/cbits/ffi.c
   build-depends:
-    , base        >=4.14 && <5
+    , base                  >=4.14 && <5
     , foreign
     , hspec
     , QuickCheck
+    , quickcheck-instances
 
   build-tool-depends: hspec-discover:hspec-discover >=2 && <3
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
