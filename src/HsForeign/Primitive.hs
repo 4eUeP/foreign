@@ -10,6 +10,7 @@ module HsForeign.Primitive
   , withPrimUnsafe
   , allocPrimUnsafe
   , withPrimArray
+  , withPrimList
   , allocPrimArray
   , withPrimArrayUnsafe
   , allocPrimArrayUnsafe
@@ -125,6 +126,10 @@ withPrimArray arr f
       withMutablePrimArrayContents buf $ \ptr -> f ptr siz
 {-# INLINABLE withPrimArray #-}
 
+withPrimList :: Prim a => [a] -> (Ptr a -> Int -> IO b) -> IO b
+withPrimList = withPrimArray . primArrayFromList
+{-# INLINABLE withPrimList #-}
+
 -- From Z-Data package: Z.Foreign
 --
 -- | Allocate a prim array and pass to FFI as pointer, freeze result into a 'PrimVector'.
@@ -195,6 +200,7 @@ withPrimArrayList pas0 f = do
       withPrimArray pa $ \ ppa _ -> do
         writePrimArray ptrs i ppa
         go ptrs (i+1) pas
+{-# INLINABLE withPrimArrayList #-}
 
 withForeignPtrList :: [ForeignPtr a] -> (Ptr (Ptr a) -> Int -> IO b) -> IO b
 withForeignPtrList fptrs f = do
