@@ -1,12 +1,20 @@
+{-# LANGUAGE BangPatterns    #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TupleSections   #-}
+
 module HsForeign.String
   ( -- * CString
     mallocFromByteString
   , mallocFromMaybeByteString
+  , newStablePtrByteString
   , withByteString
   , withByteStrings
 
     -- * CXX: std::string
   , StdString
+  , newStdString
+  , maybeNewStdString
   , hs_new_std_string
   , hs_new_std_string_def
   , hs_std_string_size
@@ -15,16 +23,18 @@ module HsForeign.String
   , unsafePeekStdString
   ) where
 
-import           Control.Exception        (AssertionFailed (..), throw)
-import           Control.Monad            (unless)
-import           Data.ByteString          (ByteString)
-import qualified Data.ByteString.Internal as BS
-import qualified Data.ByteString.Unsafe   as BS
+import           Control.Exception         (AssertionFailed (..), throw)
+import           Control.Monad             (unless)
+import           Data.ByteString           (ByteString)
+import qualified Data.ByteString.Internal  as BS
+import qualified Data.ByteString.Unsafe    as BS
 import           Data.Word
 import           Foreign.C.String
 import           Foreign.ForeignPtr
+import           Foreign.ForeignPtr.Unsafe
 import           Foreign.Marshal
 import           Foreign.Ptr
+import           Foreign.StablePtr
 
 import           HsForeign.Primitive
 
@@ -48,13 +58,18 @@ mallocFromMaybeByteString (Just bs) = mallocFromByteString bs
 mallocFromMaybeByteString Nothing   = return (nullPtr, 0)
 {-# INLINE mallocFromMaybeByteString #-}
 
+newStablePtrByteString :: ByteString -> IO (CString, Int, StablePtr ByteString)
+newStablePtrByteString bs = do
+  !sp <- newStablePtr bs
+  let (fp, len) = toForeignPtr0 bs
+      !p = unsafeForeignPtrToPtr fp
+  pure (castPtr p, len, sp)
+
 withByteString :: ByteString -> (Ptr Word8 -> Int -> IO a) -> IO a
-withByteString (BS.PS fp off len) f =
-  -- TODO: since bytestring 0.11.0.0, it exports the 'BS' constructor.
-  -- we can change to benefit from the simplified BS constructor if we only
-  -- support bytestring >= 0.11
-  let fp' = fp `plusForeignPtr` off
-   in withForeignPtr fp' $ \p -> f p len
+withByteString bs f =
+  let (fp, len) = toForeignPtr0 bs
+   in withForeignPtr fp $ \p -> f p len
+{-# INLINABLE withByteString #-}
 
 -- | Pass list of ByteStrings to FFI.
 withByteStrings
@@ -83,9 +98,33 @@ foreign import ccall unsafe hs_std_string_size :: Ptr StdString -> IO Int
 foreign import ccall unsafe hs_std_string_cstr :: Ptr StdString -> IO (Ptr Word8)
 foreign import ccall unsafe hs_delete_std_string :: Ptr StdString -> IO ()
 
+-- | New a c++ std::string from proviced bytestring.
+--
+-- The memory should be deallocated using delete when no longer required.
+newStdString :: ByteString -> IO (Ptr StdString)
+newStdString bs = withByteString bs $ hs_new_std_string
+
+maybeNewStdString :: Maybe ByteString -> IO (Ptr StdString)
+maybeNewStdString Nothing   = pure nullPtr
+maybeNewStdString (Just bs) = newStdString bs
+
 unsafePeekStdString :: Ptr StdString -> IO ByteString
 unsafePeekStdString stdstring = do
   siz <- hs_std_string_size stdstring
   ptr <- hs_std_string_cstr stdstring
   BS.unsafePackCStringFinalizer ptr siz (hs_delete_std_string stdstring)
 {-# INLINE unsafePeekStdString #-}
+
+-------------------------------------------------------------------------------
+
+-- TODO: since bytestring 0.11.0.0, it exports the 'BS' constructor and
+-- 'toForeignPtr0'.
+--
+-- we can change to benefit from the simplified BS constructor if we only
+-- support bytestring >= 0.11
+toForeignPtr0 :: ByteString -> (ForeignPtr Word8, Int)
+#if !MIN_VERSION_bytestring(0, 11, 0)
+toForeignPtr0 (BS.PS fp off len) = (fp `plusForeignPtr` off, len)
+#else
+toForeignPtr0 = BS.toForeignPtr0
+#endif

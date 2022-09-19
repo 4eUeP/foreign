@@ -1,4 +1,4 @@
 # foreign
 
-A collection of data types, classes, and functions for easing your ffi
-experience.
+Extra collection of data types, classes, and functions for interfacing with c
+and c++.
