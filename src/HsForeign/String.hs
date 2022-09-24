@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns    #-}
 {-# LANGUAGE CPP             #-}
+{-# LANGUAGE MagicHash       #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TupleSections   #-}
 
@@ -9,7 +10,10 @@ module HsForeign.String
   , mallocFromMaybeByteString
   , newStablePtrByteString
   , withByteString
+  , withMaybeByteString
+  , withByteStringList
   , withByteStrings
+  , withShortByteString
 
     -- * CXX: std::string
   , StdString
@@ -23,11 +27,13 @@ module HsForeign.String
   , unsafePeekStdString
   ) where
 
-import           Control.Exception         (AssertionFailed (..), throw)
-import           Control.Monad             (unless)
-import           Data.ByteString           (ByteString)
-import qualified Data.ByteString.Internal  as BS
-import qualified Data.ByteString.Unsafe    as BS
+import           Control.Exception              (AssertionFailed (..), throw)
+import           Control.Monad                  (unless)
+import           Data.ByteString                (ByteString)
+import qualified Data.ByteString.Internal       as BS
+import           Data.ByteString.Short          (ShortByteString)
+import qualified Data.ByteString.Short.Internal as BSS
+import qualified Data.ByteString.Unsafe         as BS
 import           Data.Word
 import           Foreign.C.String
 import           Foreign.ForeignPtr
@@ -35,6 +41,7 @@ import           Foreign.ForeignPtr.Unsafe
 import           Foreign.Marshal
 import           Foreign.Ptr
 import           Foreign.StablePtr
+import           GHC.Exts                       (touch#)
 
 import           HsForeign.Primitive
 
@@ -71,6 +78,28 @@ withByteString bs f =
    in withForeignPtr fp $ \p -> f p len
 {-# INLINABLE withByteString #-}
 
+withMaybeByteString :: Maybe ByteString -> (Ptr Word8 -> Int -> IO a) -> IO a
+withMaybeByteString Nothing f = f nullPtr 0
+withMaybeByteString (Just bs) f =
+  let (fp, len) = toForeignPtr0 bs
+   in withForeignPtr fp $ \p -> f p len
+{-# INLINABLE withMaybeByteString #-}
+
+-- | Pass list of ByteStrings to FFI.
+withByteStringList
+  :: [ByteString]
+  -> (Ptr (Ptr Word8) -> Ptr Int -> Int -> IO a)
+  -- ^ cstring*, len*, list_len
+  -> IO a
+withByteStringList bss f = do
+  let (ps, lens) = unzip (map toForeignPtr0 bss)
+  withPrimArray (primArrayFromList lens) $ \lens' num ->
+    withForeignPtrList ps $ \ps' num_ps -> do
+      unless (num == num_ps) $ throw $
+        AssertionFailed "This should never happen..."
+      f ps' lens' num
+
+{-# DEPRECATED withByteStrings "use withByteStringList instead" #-}
 -- | Pass list of ByteStrings to FFI.
 withByteStrings
   :: [ByteString]
@@ -86,6 +115,12 @@ withByteStrings bss f = do
       unless (num == _num_offs && num == _num_ps) $ throw $
         AssertionFailed "This should never happen..."
       f ps' offs' lens' num
+
+withShortByteString :: ShortByteString -> (ByteArray# -> Int -> IO a) -> IO a
+withShortByteString sbs@(BSS.SBS ba#) f = do
+  !r <- f ba# (BSS.length sbs)
+  primitive_ $ touch# ba#
+  pure r
 
 -------------------------------------------------------------------------------
 -- std::string

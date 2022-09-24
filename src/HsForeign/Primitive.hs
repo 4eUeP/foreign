@@ -24,7 +24,7 @@ module HsForeign.Primitive
   , byteArrayContents#
   , mutableByteArrayContents#
 
-    -- * Re-export
+    -- * Re-exports
   , module Data.Primitive
   , module Control.Monad.Primitive
   ) where
