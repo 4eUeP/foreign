@@ -51,6 +51,7 @@ library
     HsForeign
     HsForeign.AsyncFFI
     HsForeign.Primitive
+    HsForeign.Utils
     HsForeign.String
 
   build-depends:
