@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               foreign
-version:            0.1.1.0
+version:            0.1.2.0
 synopsis:           A collection of helpers for ffi.
 description:
   Please see the README on Github at <https://github.com/4eUeP/foreign#readme>
@@ -51,8 +51,8 @@ library
     HsForeign
     HsForeign.AsyncFFI
     HsForeign.Primitive
-    HsForeign.Utils
     HsForeign.String
+    HsForeign.Utils
 
   build-depends:
     , base                >=4.14 && <5
