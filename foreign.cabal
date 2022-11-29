@@ -10,7 +10,7 @@ license-file:       LICENSE
 copyright:          Copyright (c)
 author:             mu
 maintainer:         mu@laxcat.xyz
-tested-with:        GHC ==8.10.7
+tested-with:        GHC ==8.10.7 || ==9.2.5
 category:           Foreign
 homepage:           https://github.com/4eUeP/foreign
 bug-reports:        https://github.com/4eUeP/foreign/issues
