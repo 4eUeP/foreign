@@ -18,3 +18,10 @@ spec = do
       -- 3. unsafePeekStdString peek the std::string with a delete finalizer.
       let f = unsafePeekStdString =<< (withByteString s $ \p l -> hs_new_std_string p l)
        in unsafeDupablePerformIO f === s
+
+    prop "newStdStringFromShort" $ \s -> do
+      let f = do p <- newStdStringFromShort s
+                 s' <- peekStdStringShort p
+                 hs_delete_std_string p
+                 pure s'
+       in unsafeDupablePerformIO f === s

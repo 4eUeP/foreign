@@ -34,6 +34,7 @@ import           Control.Monad.Primitive
 import           Data.Primitive
 import           Data.Primitive.Unlifted.Array
 import           Foreign.ForeignPtr
+import           Foreign.Ptr
 import           GHC.Exts
 
 -------------------------------------------------------------------------------
@@ -127,7 +128,8 @@ withPrimArray arr f
 {-# INLINABLE withPrimArray #-}
 
 withPrimList :: Prim a => [a] -> (Ptr a -> Int -> IO b) -> IO b
-withPrimList = withPrimArray . primArrayFromList
+withPrimList [] f = f nullPtr 0
+withPrimList xs f = withPrimArray (primArrayFromList xs) f
 {-# INLINABLE withPrimList #-}
 
 -- From Z-Data package: Z.Foreign
